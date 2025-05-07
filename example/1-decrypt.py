@@ -9,8 +9,15 @@
 @Description :
 """
 
-import json
+import sys
 import os
+
+# 添加项目根目录到Python路径
+current_dir = os.path.dirname(os.path.abspath(__file__))
+root_dir = os.path.dirname(current_dir)
+sys.path.append(root_dir)
+
+import json
 from multiprocessing import freeze_support
 
 from wxManager import Me
@@ -23,7 +30,7 @@ def dump_v3():
     """
     解析微信3.x版本的数据库
     """
-    version_list_path = '../wxManager/decrypt/version_list.json'
+    version_list_path = 'wxManager/decrypt/version_list.json'
     with open(version_list_path, "r", encoding="utf-8") as f:
         version_list = json.loads(f.read())
     r_3 = get_info_v3(version_list)  # 微信3.x
@@ -70,7 +77,7 @@ def dump_v4():
         # 导出的数据库在 output_dir/db_storage 文件夹下，后面会用到
         with open(os.path.join(output_dir, 'db_storage', 'info.json'), 'w', encoding='utf-8') as f:
             json.dump(info_data, f, ensure_ascii=False, indent=4)
-        print(f'数据库解析成功，在{os.path.join(output_dir, "Msg")}路径下')
+        print(f'数据库解析成功，在{os.path.join(output_dir, "db_storage")}路径下')
 
 
 if __name__ == '__main__':

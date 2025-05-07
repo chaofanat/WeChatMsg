@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的微信社交关系图谱</title>
+    <script src="./echarts.min.js"></script>
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', '微软雅黑', Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+        }
+        .container {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .header {
+            padding: 20px;
+            background-color: #1aad19;
+            color: white;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .time-range {
+            margin-top: 5px;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .chart-container {
+            flex: 1;
+            background-color: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            margin: 20px;
+            border-radius: 5px;
+            position: relative;
+        }
+        #chart {
+            width: 100%;
+            height: 100%;
+        }
+        .control-panel {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 100;
+            background-color: rgba(255, 255, 255, 0.8);
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 5px 10px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .control-panel label {
+            margin: 0 5px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+        }
+        .control-panel input {
+            margin-right: 5px;
+        }
+        .fullscreen-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 100;
+            background-color: rgba(255, 255, 255, 0.8);
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 5px 10px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .fullscreen-btn:hover {
+            background-color: rgba(240, 240, 240, 0.9);
+        }
+        .fullscreen-btn svg {
+            width: 16px;
+            height: 16px;
+            margin-right: 5px;
+        }
+        .legend-note {
+            padding: 10px 20px;
+            font-size: 14px;
+            color: #666;
+            background-color: white;
+            margin: 0 20px 20px 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        .color-gradient {
+            height: 20px;
+            margin: 10px 0;
+            background: linear-gradient(to right, #5a78ff, #9000ff, #ff0000);
+            border-radius: 3px;
+        }
+        .gradient-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #888;
+        }
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            font-size: 16px;
+            color: #666;
+        }
+        .footer {
+            padding: 10px;
+            text-align: center;
+            font-size: 12px;
+            color: #888;
+            background-color: white;
+            margin: 0 20px 10px 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>我的微信社交关系图谱</h1>
+            <p>基于微信聊天记录生成的社交网络分析</p>
+            <div class="time-range" id="timeRange">加载中...</div>
+        </div>
+        
+        <div class="chart-container">
+            <div id="chart">
+                <div class="loading">正在加载数据，请稍候...</div>
+            </div>
+            <div class="control-panel">
+                <label>
+                    <input type="checkbox" id="filterZeroInteraction" checked>
+                    隐藏互动指数为0的联系人
+                </label>
+            </div>
+            <div class="fullscreen-btn" id="fullscreenBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span>全屏</span>
+            </div>
+        </div>
+        
+        <div class="legend-note">
+            <h3>图例说明：</h3>
+            <p>节点大小：表示消息总量，越大表示消息越多</p>
+            <p>连线粗细：表示互动强度，越粗表示互动越频繁</p>
+            <p>节点颜色：表示互动亲密度</p>
+            <div class="color-gradient"></div>
+            <div class="gradient-labels">
+                <span>较少互动</span>
+                <span>中等互动</span>
+                <span>频繁互动</span>
+            </div>
+            <p>节点分类：中心(我)、好友、群聊、服务号/订阅号</p>
+        </div>
+        
+        <div class="footer">
+            <p>由WeChatMsg项目自动生成 - 基于您的微信聊天记录数据</p>
+        </div>
+    </div>
+    
+    <script>
+        // 初始化图表
+        var chartDom = document.getElementById('chart');
+        var myChart = echarts.init(chartDom);
+        
+        // 全屏功能
+        var chartContainer = document.querySelector('.chart-container');
+        var fullscreenBtn = document.getElementById('fullscreenBtn');
+        var isFullscreen = false;
+        
+        fullscreenBtn.addEventListener('click', function() {
+            if (!isFullscreen) {
+                // 进入全屏
+                if (chartContainer.requestFullscreen) {
+                    chartContainer.requestFullscreen();
+                } else if (chartContainer.mozRequestFullScreen) { // Firefox
+                    chartContainer.mozRequestFullScreen();
+                } else if (chartContainer.webkitRequestFullscreen) { // Chrome, Safari
+                    chartContainer.webkitRequestFullscreen();
+                } else if (chartContainer.msRequestFullscreen) { // IE/Edge
+                    chartContainer.msRequestFullscreen();
+                }
+                fullscreenBtn.querySelector('span').textContent = '退出全屏';
+            } else {
+                // 退出全屏
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.mozCancelFullScreen) {
+                    document.mozCancelFullScreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
+                }
+                fullscreenBtn.querySelector('span').textContent = '全屏';
+            }
+            isFullscreen = !isFullscreen;
+        });
+        
+        // 监听全屏状态变化
+        document.addEventListener('fullscreenchange', fullscreenChangeHandler);
+        document.addEventListener('webkitfullscreenchange', fullscreenChangeHandler);
+        document.addEventListener('mozfullscreenchange', fullscreenChangeHandler);
+        document.addEventListener('MSFullscreenChange', fullscreenChangeHandler);
+        
+        function fullscreenChangeHandler() {
+            // 检查当前是否处于全屏状态
+            isFullscreen = Boolean(
+                document.fullscreenElement || 
+                document.webkitFullscreenElement || 
+                document.mozFullScreenElement ||
+                document.msFullscreenElement
+            );
+            
+            // 更新按钮文本
+            fullscreenBtn.querySelector('span').textContent = isFullscreen ? '退出全屏' : '全屏';
+            
+            // 调整图表大小以适应全屏
+            myChart.resize();
+        }
+        
+        // 加载数据
+        var originalData = null; // 存储原始数据
+        
+        fetch('./chat_data.json')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('网络响应不正常');
+                }
+                return response.json();
+            })
+            .then(data => {
+                // 处理数据并绘制图表
+                renderChart(data);
+            })
+            .catch(error => {
+                console.error('获取数据出错:', error);
+                document.querySelector('.loading').innerHTML = '加载数据失败，请刷新页面重试。';
+            });
+            
+        function renderChart(data) {
+            // 存储原始数据
+            if (!originalData) {
+                originalData = JSON.parse(JSON.stringify(data));
+            }
+            
+            // 获取过滤选项状态
+            var filterZero = document.getElementById('filterZeroInteraction').checked;
+            
+            // 应用过滤器
+            var processedData = applyFilters(originalData, filterZero);
+            
+            // 从JSON获取数据
+            var legendData = processedData.legendData;
+            var nodesData = processedData.nodesData;
+            var linksData = processedData.linksData;
+            var categoriesData = processedData.categoriesData;
+            var nodeDetails = processedData.nodeDetails;
+            var timeRange = processedData.time_range || ["未知", "未知"];
+            
+            // 显示时间范围
+            if (timeRange && timeRange.length >= 2) {
+                var startTime = timeRange[0];
+                var endTime = timeRange[1];
+                // 格式化时间字符串
+                var formattedStart = startTime.substring(0, 10);
+                var formattedEnd = endTime.substring(0, 10);
+                document.getElementById('timeRange').innerHTML = 
+                    `数据时间范围: ${formattedStart} 至 ${formattedEnd}`;
+            }
+            
+            // 图表配置
+            var option = {
+                tooltip: {
+                    trigger: 'item',
+                    formatter: function(params) {
+                        if (params.dataType === 'node') {
+                            return `
+                                <div style="font-weight:bold;margin-bottom:5px;">${params.data.name}</div>
+                                <div>互动指数: ${params.data.value.toFixed(1)}</div>
+                                ${params.data.id !== 'me' ? `
+                                <div>消息总数: ${params.data.chatData?.total_msgs ?? 0}</div>
+                                <div>我发送: ${params.data.chatData?.sent_msgs ?? 0}</div>
+                                <div>对方发送: ${params.data.chatData?.received_msgs ?? 0}</div>
+                                ` : ''}
+                            `;
+                        } else {
+                            return `互动强度: ${params.data.value.toFixed(1)}`;
+                        }
+                    }
+                },
+                legend: {
+                    data: legendData,
+                    orient: 'horizontal',
+                    left: 'center',
+                    top: 20
+                },
+                animationDuration: 1500,
+                animationEasingUpdate: 'quinticInOut',
+                series: [{
+                    name: '社交关系',
+                    type: 'graph',
+                    layout: 'force',
+                    data: nodesData,
+                    links: linksData,
+                    categories: categoriesData,
+                    roam: true,
+                    label: {
+                        show: true,
+                        position: 'right',
+                        formatter: '{b}'
+                    },
+                    labelLayout: {
+                        hideOverlap: true
+                    },
+                    scaleLimit: {
+                        min: 0.1,
+                        max: 2
+                    },
+                    lineStyle: {
+                        color: 'source',
+                        curveness: 0.3
+                    },
+                    emphasis: {
+                        focus: 'adjacency',
+                        lineStyle: {
+                            width: 10
+                        }
+                    },
+                    force: {
+                        repulsion: 200,
+                        gravity: 0.1,
+                        edgeLength: [50, 200],
+                        layoutAnimation: true
+                    }
+                }]
+            };
+            
+            // 为节点添加详细数据
+            option.series[0].data.forEach(function(node) {
+                if (node.id !== 'me') {
+                    var nodeData = nodeDetails.find(item => item.id === node.id);
+                    if (nodeData) {
+                        node.chatData = {
+                            total_msgs: nodeData.total_msgs,
+                            sent_msgs: nodeData.sent_msgs,
+                            received_msgs: nodeData.received_msgs,
+                            is_group: nodeData.is_group,
+                            send_ratio: nodeData.send_ratio
+                        };
+                    }
+                }
+            });
+            
+            // 渲染图表
+            myChart.setOption(option);
+            
+            // 隐藏加载提示
+            document.querySelector('.loading').style.display = 'none';
+        }
+        
+        // 应用过滤器函数
+        function applyFilters(originalData, filterZero) {
+            // 创建新的数据对象进行处理
+            var result = JSON.parse(JSON.stringify(originalData));
+            
+            if (filterZero) {
+                // 过滤掉互动指数为0的节点
+                var filteredNodeDetails = result.nodeDetails.filter(function(node) {
+                    return node.interaction_score > 0;
+                });
+                
+                // 更新节点详情
+                result.nodeDetails = filteredNodeDetails;
+                
+                // 过滤节点数据 - 保留中心节点(我)和互动指数>0的节点
+                result.nodesData = result.nodesData.filter(function(node) {
+                    return node.id === "me" || (node.value > 0);
+                });
+                
+                // 过滤链接数据 - 仅保留连接到剩余节点的链接
+                var remainingNodeIds = result.nodesData.map(function(node) {
+                    return node.id;
+                });
+                
+                result.linksData = result.linksData.filter(function(link) {
+                    return remainingNodeIds.includes(link.target);
+                });
+            }
+            
+            return result;
+        }
+        
+        // 监听过滤器变化事件
+        document.getElementById('filterZeroInteraction').addEventListener('change', function() {
+            renderChart(originalData);
+        });
+        
+        // 响应式调整
+        window.addEventListener('resize', function() {
+            myChart.resize();
+        });
+    </script>
+</body>
+</html> 

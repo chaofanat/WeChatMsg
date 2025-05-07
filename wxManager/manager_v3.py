@@ -249,7 +249,7 @@ class DataBaseV3(DataBaseInterface):
         # todo 改成yield进行操作，多进程处理加快速度
         import time
         st = time.time()
-        logger.error(f'开始获取聊天记录：{st}')
+        logger.info(f'开始获取聊天记录：{st}')
         # if username_.startswith('gh'):
         #     messages = self.public_msg_db.get_messages(username_, time_range)
         # elif username_.endswith('@openim'):
@@ -308,8 +308,8 @@ class DataBaseV3(DataBaseInterface):
                     res.extend(future.result())
 
         et = time.time()
-        logger.error(f'获取聊天记录完成：{et}')
-        logger.error(f'获取聊天记录耗时：{et - st:.2f}s/{len(res)}条消息')
+        logger.info(f'获取聊天记录完成：{et}')
+        logger.info(f'获取聊天记录耗时：{et - st:.2f}s/{len(res)}条消息')
         res.sort()
         return res
 

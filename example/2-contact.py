@@ -8,12 +8,21 @@
 @File        : wxManager-2-contact.py 
 @Description : 
 """
+import sys
+import os
+
+# 添加项目根目录到Python路径
+current_dir = os.path.dirname(os.path.abspath(__file__))
+root_dir = os.path.dirname(current_dir)
+sys.path.append(root_dir)
+
 import time
 
 from wxManager import DatabaseConnection
 
-db_dir = ''  # 第一步解析后的数据库路径，例如：./wxid_xxxx/db_storage
-db_version = 4  # 数据库版本，4 or 3
+# 根据上一步的结果设置
+db_dir = 'wxid_cyy7k443xxcv22/Msg'  # 第一步解析后的数据库路径
+db_version = 3  # 数据库版本，4 or 3，这里使用3，因为我们在上一步解析的是微信3.x版本
 
 conn = DatabaseConnection(db_dir, db_version)  # 创建数据库连接
 database = conn.get_interface()  # 获取数据库接口

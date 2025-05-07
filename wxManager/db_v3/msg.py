@@ -15,6 +15,7 @@ from wxManager.log import logger
 from wxManager.model import DataBaseBase
 
 
+
 def convert_to_timestamp_(time_input) -> int:
     if isinstance(time_input, (int, float)):
         # 如果输入是时间戳，直接返回
@@ -91,18 +92,28 @@ def get_local_type(type_: MessageType):
 class Msg(DataBaseBase):
 
     def _get_messages_by_num(self, cursor, username_, start_sort_seq, msg_num):
-        sql = '''
-            select localId,TalkerId,Type,SubType,IsSender,CreateTime,Status,StrContent,strftime('%Y-%m-%d %H:%M:%S',CreateTime,'unixepoch','localtime') as StrTime,MsgSvrID,BytesExtra,CompressContent,DisplayContent
-            from MSG
-            where StrTalker = ? and CreateTime < ?
-            order by CreateTime desc 
-            limit ?
-        '''
-        cursor.execute(sql, [username_, start_sort_seq, msg_num])
-        result = cursor.fetchall()
-        if result:
-            return result
-        else:
+        try:
+            # 先检查表是否存在
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='MSG'")
+            if not cursor.fetchone():
+                return []  # 表不存在，返回空列表
+                
+            sql = '''
+                select localId,TalkerId,Type,SubType,IsSender,CreateTime,Status,StrContent,strftime('%Y-%m-%d %H:%M:%S',CreateTime,'unixepoch','localtime') as StrTime,MsgSvrID,BytesExtra,CompressContent,DisplayContent
+                from MSG
+                where StrTalker = ? and CreateTime < ?
+                order by CreateTime desc 
+                limit ?
+            '''
+            cursor.execute(sql, [username_, start_sort_seq, msg_num])
+            result = cursor.fetchall()
+            if result:
+                return result
+            else:
+                return []
+        except Exception as e:
+            # 记录错误但不中断程序
+            logger.error(f"按数量查询数据库出错: {e}")
             return []
 
     def get_messages_by_num(self, username, start_sort_seq, msg_num=20):
@@ -121,6 +132,9 @@ class Msg(DataBaseBase):
                 data = self._get_messages_by_num(cursor, username, start_sort_seq, msg_num)
                 with lock:  # 确保对 results 的操作是线程安全的
                     results.append(data)
+            except Exception as e:
+                # 记录错误但不影响其他线程
+                logger.error(f"获取消息出错: {e}")
             finally:
                 cursor.close()
 
@@ -132,20 +146,30 @@ class Msg(DataBaseBase):
 
     def _get_messages_by_username(self, cursor, username: str,
                                   time_range: Tuple[int | float | str | date, int | float | str | date] = None, ):
-        if time_range:
-            start_time, end_time = convert_to_timestamp(time_range)
-        sql = f'''
-            select localId,TalkerId,Type,SubType,IsSender,CreateTime,Status,StrContent,strftime('%Y-%m-%d %H:%M:%S',CreateTime,'unixepoch','localtime') as StrTime,MsgSvrID,BytesExtra,CompressContent,DisplayContent
-            from MSG
-            where StrTalker=?
-            {'AND CreateTime>' + str(start_time) + ' AND CreateTime<' + str(end_time) if time_range else ''}
-            order by CreateTime
-        '''
-        cursor.execute(sql, [username])
-        result = cursor.fetchall()
-        if result:
-            return result
-        else:
+        try:
+            # 先检查表是否存在
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='MSG'")
+            if not cursor.fetchone():
+                return []  # 表不存在，返回空列表
+                
+            if time_range:
+                start_time, end_time = convert_to_timestamp(time_range)
+            sql = f'''
+                select localId,TalkerId,Type,SubType,IsSender,CreateTime,Status,StrContent,strftime('%Y-%m-%d %H:%M:%S',CreateTime,'unixepoch','localtime') as StrTime,MsgSvrID,BytesExtra,CompressContent,DisplayContent
+                from MSG
+                where StrTalker=?
+                {'AND CreateTime>' + str(start_time) + ' AND CreateTime<' + str(end_time) if time_range else ''}
+                order by CreateTime
+            '''
+            cursor.execute(sql, [username])
+            result = cursor.fetchall()
+            if result:
+                return result
+            else:
+                return []
+        except Exception as e:
+            # 记录错误但不中断程序
+            logger.error(f"查询数据库出错: {e}")
             return []
 
     def get_messages_by_username(self, username: str,
@@ -160,10 +184,14 @@ class Msg(DataBaseBase):
             # 等待所有任务完成，并获取结果
             results = []
             for future in concurrent.futures.as_completed(futures):
-                r1 = future.result()
-                if r1:
-                    # results.append(future.result())
-                    results.extend(r1)
+                try:
+                    r1 = future.result()
+                    if r1:
+                        # results.append(future.result())
+                        results.extend(r1)
+                except Exception as e:
+                    # 捕获并记录异常，但继续处理其他结果
+                    logger.error(f"获取用户消息时出错: {e}")
 
         return results
 
@@ -181,10 +209,21 @@ class Msg(DataBaseBase):
 '''
         for db in self.DB:
             cursor = db.cursor()
-            cursor.execute(sql, [server_id])
-            result = cursor.fetchone()
-            if result:
-                return result
+            try:
+                # 先检查表是否存在
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='MSG'")
+                if not cursor.fetchone():
+                    continue  # 表不存在，尝试下一个数据库
+                    
+                cursor.execute(sql, [server_id])
+                result = cursor.fetchone()
+                if result:
+                    return result
+            except Exception as e:
+                # 记录错误但继续查询其他数据库
+                logger.error(f"根据服务器ID查询消息出错: {e}")
+            finally:
+                cursor.close()
 
         return None
 
@@ -194,14 +233,24 @@ class Msg(DataBaseBase):
         @param username_:
         @return:
         """
-        sql = f'''SELECT DISTINCT strftime('%Y-%m-%d',CreateTime,'unixepoch','localtime') AS date
-            from MSG
-            where StrTalker=?
-            ORDER BY date desc;
-        '''
-        cursor.execute(sql, [username])
-        result = cursor.fetchall()
-        return (data[0] for data in result)
+        try:
+            # 先检查表是否存在
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='MSG'")
+            if not cursor.fetchone():
+                return []  # 表不存在，返回空列表
+                
+            sql = f'''SELECT DISTINCT strftime('%Y-%m-%d',CreateTime,'unixepoch','localtime') AS date
+                from MSG
+                where StrTalker=?
+                ORDER BY date desc;
+            '''
+            cursor.execute(sql, [username])
+            result = cursor.fetchall()
+            return (data[0] for data in result)
+        except Exception as e:
+            # 记录错误但不中断程序
+            logger.error(f"查询聊天日历出错: {e}")
+            return []
 
     def get_messages_calendar(self, username):
         res = []
@@ -214,22 +263,32 @@ class Msg(DataBaseBase):
 
     def _get_messages_by_type(self, cursor, username: str, type_: MessageType,
                               time_range: Tuple[int | float | str | date, int | float | str | date] = None, ):
-        if time_range:
-            start_time, end_time = convert_to_timestamp(time_range)
-        local_type, sub_type = get_local_type(type_)
-        sql = f'''
-            select localId,TalkerId,Type,SubType,IsSender,CreateTime,Status,StrContent,strftime('%Y-%m-%d %H:%M:%S',CreateTime,'unixepoch','localtime') as StrTime,MsgSvrID,BytesExtra,CompressContent,DisplayContent
-            from MSG
-            where StrTalker=? and Type=? and SubType = ?
-            {'AND CreateTime>' + str(start_time) + ' AND CreateTime<' + str(end_time) if time_range else ''}
-            order by CreateTime
-        '''
-        cursor.execute(sql, [username, local_type, sub_type])
-        result = cursor.fetchall()
-        if result:
-            return result
-        else:
-            return None
+        try:
+            # 先检查表是否存在
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='MSG'")
+            if not cursor.fetchone():
+                return []  # 表不存在，返回空列表
+                
+            if time_range:
+                start_time, end_time = convert_to_timestamp(time_range)
+            local_type, sub_type = get_local_type(type_)
+            sql = f'''
+                select localId,TalkerId,Type,SubType,IsSender,CreateTime,Status,StrContent,strftime('%Y-%m-%d %H:%M:%S',CreateTime,'unixepoch','localtime') as StrTime,MsgSvrID,BytesExtra,CompressContent,DisplayContent
+                from MSG
+                where StrTalker=? and Type=? and SubType = ?
+                {'AND CreateTime>' + str(start_time) + ' AND CreateTime<' + str(end_time) if time_range else ''}
+                order by CreateTime
+            '''
+            cursor.execute(sql, [username, local_type, sub_type])
+            result = cursor.fetchall()
+            if result:
+                return result
+            else:
+                return []
+        except Exception as e:
+            # 记录错误但不中断程序
+            logger.error(f"按类型查询数据库出错: {e}")
+            return []
 
     def get_messages_by_type(self, username: str, type_: MessageType,
                              time_range: Tuple[int | float | str | date, int | float | str | date] = None, ):
@@ -243,10 +302,14 @@ class Msg(DataBaseBase):
             # 等待所有任务完成，并获取结果
             results = []
             for future in concurrent.futures.as_completed(futures):
-                r1 = future.result()
-                if r1:
-                    # results.append(future.result())
-                    results.extend(r1)
+                try:
+                    r1 = future.result()
+                    if r1:
+                        # results.append(future.result())
+                        results.extend(r1)
+                except Exception as e:
+                    # 捕获并记录异常，但继续处理其他结果
+                    logger.error(f"按类型获取消息时出错: {e}")
 
         return results
 
@@ -257,6 +320,7 @@ class Msg(DataBaseBase):
                 '''
         sql_update = f'''
                     UPDATE MSG SET StrContent = ? WHERE MsgSvrID = ?'''
+        lock = threading.Lock()
         try:
             lock.acquire(True)
             self.cursor.execute(sql_xml, [MsgSvrID_])
