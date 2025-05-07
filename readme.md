@@ -1,5 +1,44 @@
+# 说明
+## 出于兴趣fork此项目进行研究后，做出了一些调整，以便于更好的使用。
+## 新增了一个使用示例用于生成微信社交关系图谱
+效果大概是这样：
+![image](https://github.com/user-attachments/assets/a7bea210-7419-4da9-af6b-471035c9691d)
+![image](https://github.com/user-attachments/assets/ebf5d074-cc44-4485-ac6c-1c8c0d573638)
 
-# DatabaseConnection 接口方法示例
+## 快速开始
+环境准备：
+- windows
+- python3.10
+- wechat已经登陆，且聊天记录完整（只能分析电脑端已有的聊天记录，电脑端不全的可以先从手机同步过来）
+- git
+
+1. 克隆项目
+```shell
+git clone https://github.com/chaofanat/WeChatMsg.git
+```
+
+2. 使用pip安装依赖项
+```shell
+pip install -r requirements.txt
+```
+
+3. 进入示例文件夹并运行文件
+
+```bash
+cd example/auto_analysis
+python wechat_analyzer.py -t "2025-04-01,2025-05-01"
+```
+
+
+更多示例的详细说明参见[示例文档](https://github.com/chaofanat/WeChatMsg/blob/master/example/auto_analysis/README.md)
+
+
+
+
+
+
+
+# DatabaseConnection 接口方法示例  （由AI阅读代码后整理，仅供参考）
 
 DatabaseConnection是微信数据管理的核心类，它提供了一系列方法来访问和操作微信数据库。以下是主要方法的示例：
 
