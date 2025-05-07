@@ -33,7 +33,7 @@ wordcloud.html
 # 微信聊天分析生成的文件
 wechat_analysis_*/
 chat_data.json
-echarts.min.js
+
 
 # Python相关
 __pycache__/
