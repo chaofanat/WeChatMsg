@@ -24,3 +24,8 @@ server
 *.spec
 test*
 wordcloud.html
+# SpecStory explanation file
+.specstory/.what-is-this.md
+.venv/
+.cursorindexingignore
+.specstory/
